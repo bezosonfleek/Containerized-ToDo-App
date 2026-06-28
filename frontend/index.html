@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Todo App</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      letter-spacing: 0.15em;
+      color: #a3e635;
+      text-transform: uppercase;
+    }
+
+    header p {
+      margin-top: 6px;
+      font-size: 0.75rem;
+      color: #64748b;
+      letter-spacing: 0.1em;
+    }
+
+    .card {
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 24px;
+      width: 100%;
+      max-width: 560px;
+      margin-bottom: 24px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus { border-color: #a3e635; }
+    input[type="text"]::placeholder { color: #475569; }
+
+    button {
+      background: #a3e635;
+      border: none;
+      border-radius: 6px;
+      color: #0f1117;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 10px 18px;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    button:hover { background: #bef264; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid #2d3148;
+      color: #94a3b8;
+      padding: 6px 12px;
+      font-size: 0.78rem;
+    }
+
+    .btn-ghost:hover { background: #2d3148; color: #e2e8f0; }
+
+    .btn-danger {
+      background: transparent;
+      border: none;
+      color: #475569;
+      padding: 4px 8px;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .btn-danger:hover { color: #f87171; background: transparent; }
+
+    #todo-list { width: 100%; max-width: 560px; }
+
+    .todo-item {
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: border-color 0.2s;
+    }
+
+    .todo-item:hover { border-color: #3d4468; }
+    .todo-item.done { opacity: 0.45; }
+
+    .todo-item input[type="checkbox"] {
+      accent-color: #a3e635;
+      width: 17px;
+      height: 17px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .todo-text {
+      flex: 1;
+      font-size: 0.92rem;
+      line-height: 1.4;
+    }
+
+    .todo-item.done .todo-text {
+      text-decoration: line-through;
+      color: #475569;
+    }
+
+    .todo-desc {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 3px;
+    }
+
+    .empty {
+      text-align: center;
+      color: #334155;
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      padding: 32px 0;
+    }
+
+    #status {
+      font-size: 0.75rem;
+      color: #64748b;
+      letter-spacing: 0.05em;
+      margin-top: 12px;
+      min-height: 18px;
+      text-align: center;
+      max-width: 560px;
+      width: 100%;
+    }
+
+    #status.error { color: #f87171; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>// todo</h1>
+    <p>backed by fastapi · postgres · docker</p>
+  </header>
+
+  <!-- Add todo form -->
+  <div class="card">
+    <div class="input-row">
+      <input id="inp-title" type="text" placeholder="What needs doing?" maxlength="120" />
+      <button id="btn-add" onclick="addTodo()">+ Add</button>
+    </div>
+    <div class="input-row" style="margin-top:10px">
+      <input id="inp-desc" type="text" placeholder="Description (optional)" maxlength="200" />
+    </div>
+  </div>
+
+  <!-- Todo list -->
+  <div id="todo-list"></div>
+  <div id="status"></div>
+
+  <script>
+    // ── Config ───────────────────────────────────────────────────────────────
+    // Nginx proxies /api/* → backend, so we never hardcode the backend URL
+    const API = '/api';
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function setStatus(msg, isError = false) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = isError ? 'error' : '';
+      if (msg) setTimeout(() => { el.textContent = ''; el.className = ''; }, 3000);
+    }
+
+    async function request(path, options = {}) {
+      const res = await fetch(API + path, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return res.status === 204 ? null : res.json();
+    }
+
+    // ── Render ───────────────────────────────────────────────────────────────
+    function render(todos) {
+      const list = document.getElementById('todo-list');
+      if (!todos.length) {
+        list.innerHTML = '<p class="empty">[ no todos yet ]</p>';
+        return;
+      }
+      list.innerHTML = todos.map(t => `
+        <div class="todo-item ${t.completed ? 'done' : ''}" id="item-${t.id}">
+          <input type="checkbox" ${t.completed ? 'checked' : ''}
+            onchange="toggleTodo(${t.id}, this.checked)" />
+          <div class="todo-text">
+            ${escHtml(t.title)}
+            ${t.description ? `<div class="todo-desc">${escHtml(t.description)}</div>` : ''}
+          </div>
+          <button class="btn-ghost" onclick="deleteTodo(${t.id})">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── API calls ────────────────────────────────────────────────────────────
+    async function loadTodos() {
+      try {
+        const todos = await request('/todos');
+        render(todos);
+      } catch (e) {
+        setStatus('could not reach api — is the backend running?', true);
+      }
+    }
+
+    async function addTodo() {
+      const title = document.getElementById('inp-title').value.trim();
+      const description = document.getElementById('inp-desc').value.trim();
+      if (!title) return;
+
+      document.getElementById('btn-add').disabled = true;
+      try {
+        await request('/todos', {
+          method: 'POST',
+          body: JSON.stringify({ title, description: description || null }),
+        });
+        document.getElementById('inp-title').value = '';
+        document.getElementById('inp-desc').value = '';
+        setStatus('added ✓');
+        loadTodos();
+      } catch (e) {
+        setStatus('failed to add todo', true);
+      } finally {
+        document.getElementById('btn-add').disabled = false;
+      }
+    }
+
+    async function toggleTodo(id, completed) {
+      try {
+        await request(`/todos/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ completed }),
+        });
+        loadTodos();
+      } catch (e) {
+        setStatus('failed to update todo', true);
+      }
+    }
+
+    async function deleteTodo(id) {
+      try {
+        await request(`/todos/${id}`, { method: 'DELETE' });
+        setStatus('deleted');
+        loadTodos();
+      } catch (e) {
+        setStatus('failed to delete todo', true);
+      }
+    }
+
+    // Allow Enter key to submit
+    document.getElementById('inp-title').addEventListener('keydown', e => {
+      if (e.key === 'Enter') addTodo();
+    });
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    loadTodos();
+  </script>
+
+</body>
+</html>
