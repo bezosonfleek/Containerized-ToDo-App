@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 📦 Todo API — Containerized with Docker + FastAPI + PostgreSQL
 
 A learning project that teaches core Docker concepts through a real REST API.
@@ -115,3 +116,4 @@ Once you're comfortable here, try:
 2. **Add a second stage** to the Dockerfile (multi-stage build) to make the image smaller
 3. **Scale the API** — `docker compose up --scale api=3` (add a load balancer)
 4. **Add Redis** — cache the `/todos` list response
+=======
