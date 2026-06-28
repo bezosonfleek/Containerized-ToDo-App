@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 📦 Todo API — Containerized with Docker + FastAPI + PostgreSQL
 
 A learning project that teaches core Docker concepts through a real REST API.
