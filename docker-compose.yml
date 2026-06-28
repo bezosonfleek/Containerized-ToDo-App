@@ -1,37 +1,61 @@
 services:
 
-  # ── FastAPI app ──────────────────────────────────────────────────────────────
-  api:
-    build: .                          # Build from our Dockerfile
+  # ── Frontend: HTML/JS served by Nginx ────────────────────────────────────
+  frontend:
+    build: ./frontend
     ports:
-      - "8000:8000"                   # localhost:8000 → container:8000
+      - "80:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # ── Backend: FastAPI application ──────────────────────────────────────────
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"       # expose for direct testing; remove in production
     environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: todos
-      DB_USER: postgres
-      DB_PASSWORD: postgres
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
     depends_on:
       db:
-        condition: service_healthy    # Wait until Postgres is ready
+        condition: service_healthy
+    restart: unless-stopped
+    # Override CMD to enable live reload in dev
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     volumes:
-      - ./app:/app/app               # Live reload: local changes reflect instantly
-
-  # ── PostgreSQL database ──────────────────────────────────────────────────────
-  db:
-    image: postgres:16-alpine         # Lightweight Postgres image
-    environment:
-      POSTGRES_DB: todos
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - postgres_data:/var/lib/postgresql/data   # Persist data between restarts
+      - ./backend/src:/app/src   # dev only: remove in production
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── Database: PostgreSQL ──────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
-# ── Named volume ─────────────────────────────────────────────────────────────
 volumes:
   postgres_data:
+
+networks:
+  default:
+    name: todo-network
