@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out the repository code
         uses: actions/checkout@v4
@@ -38,7 +38,7 @@ jobs:
 
   deploy-to-server:
     needs: build-and-push  # Explicitly prevents deployment if your image build fails
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -58,3 +58,4 @@ jobs:
             
             sudo docker run -d --name containerized-todo-app-api-1 -p 8000:8000 geoffreysakora/containerized-todo-app-api:latest
             sudo docker run -d --name containerized-todo-app-frontend-1 -p 80:80 geoffreysakora/containerized-todo-app-frontend:latest
+            
