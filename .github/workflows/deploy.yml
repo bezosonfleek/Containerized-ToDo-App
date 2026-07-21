@@ -37,7 +37,7 @@ jobs:
             geoffreysakora/containerized-todo-app-frontend:${{ github.sha }}
 
   deploy-to-server:
-    needs: build-and-push  # Explicitly prevents deployment if your image build fails
+    needs: build-and-push
     runs-on: ubuntu-24.04
     steps:
       - name: Deploy to Server via SSH
@@ -47,15 +47,14 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            sudo docker pull geoffreysakora/containerized-todo-app-api:latest
-            sudo docker pull geoffreysakora/containerized-todo-app-frontend:latest
+            docker pull geoffreysakora/containerized-todo-app-api:latest
+            docker pull geoffreysakora/containerized-todo-app-frontend:latest
             
-            sudo docker stop containerized-todo-app-api-1 || true
-            sudo docker rm containerized-todo-app-api-1 || true
+            docker stop containerized-todo-app-api-1 || true
+            docker rm containerized-todo-app-api-1 || true
             
-            sudo docker stop containerized-todo-app-frontend-1 || true
-            sudo docker rm containerized-todo-app-frontend-1 || true
+            docker stop containerized-todo-app-frontend-1 || true
+            docker rm containerized-todo-app-frontend-1 || true
             
-            sudo docker run -d --name containerized-todo-app-api-1 -p 8000:8000 geoffreysakora/containerized-todo-app-api:latest
-            sudo docker run -d --name containerized-todo-app-frontend-1 -p 80:80 geoffreysakora/containerized-todo-app-frontend:latest
-            
+            docker run -d --name containerized-todo-app-api-1 -p 8000:8000 geoffreysakora/containerized-todo-app-api:latest
+            docker run -d --name containerized-todo-app-frontend-1 -p 80:80 geoffreysakora/containerized-todo-app-frontend:latest
