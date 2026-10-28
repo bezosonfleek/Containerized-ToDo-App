@@ -2,8 +2,9 @@ name: Build, Push and Deploy ToDo App
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   build-and-push:
@@ -37,6 +38,7 @@ jobs:
             geoffreysakora/containerized-todo-app-frontend:${{ github.sha }}
 
   deploy-to-server:
+    if: github.event_name == 'push'
     needs: build-and-push
     runs-on: ubuntu-24.04
     steps:
