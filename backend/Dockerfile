@@ -1,5 +1,5 @@
 # ── Stage 1: builder ──────────────────────────────────────────────────────────
-FROM python:3.15-slim AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ── Stage 2: runtime ──────────────────────────────────────────────────────────
-FROM python:3.15-slim AS runtime
+FROM python:3.12-slim AS runtime
 
 # Run as non-root user for security
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
