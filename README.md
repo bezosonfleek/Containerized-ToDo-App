@@ -1,5 +1,7 @@
 # 📦 Todo API - Containerized with Docker + FastAPI + PostgreSQL
 
+[![CI/CD](https://github.com/bezosonfleek/Containerized-ToDo-App/actions/workflows/deploy.yml/badge.svg)](https://github.com/bezosonfleek/Containerized-ToDo-App/actions/workflows/deploy.yml)
+
 A learning project that teaches core Docker concepts through a real REST API.
 
 ---
