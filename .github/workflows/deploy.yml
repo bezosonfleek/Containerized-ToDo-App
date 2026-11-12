@@ -47,8 +47,38 @@ jobs:
         working-directory: backend
         run: python -m pytest -v
 
-  build-and-push:
+  scan:
     needs: test
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            context: ./backend
+          - name: frontend
+            context: ./frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image (not pushed)
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          load: true
+          push: false
+          tags: scan-target:${{ matrix.name }}
+      
+      - name: Scan with Trivy
+        run: |
+          TRIVY="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/aquasecurity/trivy@sha256:bcc376de8d77cfe086a917230e818dc9f8528e3c852f7b1aff648949b6258d1c"   # trivy 0.69.3
+          # report everything serious, never fails
+          $TRIVY image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 0 scan-target:${{ matrix.name }}
+          # gate: fail only on CRITICAL with a fix available
+          $TRIVY image --severity CRITICAL --ignore-unfixed --exit-code 1 scan-target:${{ matrix.name }}
+
+  build-and-push:
+    needs: [test, scan]
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     steps:
