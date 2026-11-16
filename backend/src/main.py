@@ -144,40 +144,38 @@ def get_todo(todo_id: int):
         release_conn(conn)
 
 
+
 @app.patch("/todos/{todo_id}", response_model=Todo)
 def update_todo(todo_id: int, updates: TodoUpdate):
-    # Explicit allowlist of SQL column identifiers.
-    allowed_columns = {
-        "title": "title",
-        "description": "description",
-        "completed": "completed",
+    fields = {
+        k: v
+        for k, v in updates.model_dump().items()
+        if v is not None
     }
 
-    # Exclude unset fields and retain explicitly supplied None values.
-    fields = updates.model_dump(exclude_unset=True)
-
-    # Only retain application-approved column names.
-    safe_fields = {
-        allowed_columns[key]: value
-        for key, value in fields.items()
-        if key in allowed_columns
-    }
-
-    if not safe_fields:
+    if not fields:
         raise HTTPException(status_code=400, detail="No fields to update")
 
     conn = get_conn()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        set_clause = ", ".join(
-            f"{column} = %s" for column in safe_fields
-        )
-        values = list(safe_fields.values()) + [todo_id]
-
         cur.execute(
-            f"UPDATE todos SET {set_clause} WHERE id = %s RETURNING *",
-            values,
+            """
+            UPDATE todos
+            SET
+                title = CASE WHEN %s THEN %s ELSE title END,
+                description = CASE WHEN %s THEN %s ELSE description END,
+                completed = CASE WHEN %s THEN %s ELSE completed END
+            WHERE id = %s
+            RETURNING *
+            """,
+            (
+                "title" in fields, fields.get("title"),
+                "description" in fields, fields.get("description"),
+                "completed" in fields, fields.get("completed"),
+                todo_id,
+            ),
         )
 
         updated = cur.fetchone()
@@ -195,6 +193,7 @@ def update_todo(todo_id: int, updates: TodoUpdate):
     finally:
         cur.close()
         release_conn(conn)
+
 
 @app.delete("/todos/{todo_id}", status_code=204)
 def delete_todo(todo_id: int):
