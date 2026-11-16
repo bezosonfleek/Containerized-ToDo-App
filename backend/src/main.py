@@ -143,23 +143,50 @@ def get_todo(todo_id: int):
         cur.close()
         release_conn(conn)
 
+
 @app.patch("/todos/{todo_id}", response_model=Todo)
 def update_todo(todo_id: int, updates: TodoUpdate):
-    fields = {k: v for k, v in updates.model_dump().items() if v is not None}
-    if not fields:
+    # Explicit allowlist of SQL column identifiers.
+    allowed_columns = {
+        "title": "title",
+        "description": "description",
+        "completed": "completed",
+    }
+
+    # Exclude unset fields and retain explicitly supplied None values.
+    fields = updates.model_dump(exclude_unset=True)
+
+    # Only retain application-approved column names.
+    safe_fields = {
+        allowed_columns[key]: value
+        for key, value in fields.items()
+        if key in allowed_columns
+    }
+
+    if not safe_fields:
         raise HTTPException(status_code=400, detail="No fields to update")
 
     conn = get_conn()
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        set_clause = ", ".join(f"{k} = %s" for k in fields)
-        values = list(fields.values()) + [todo_id]
-        cur.execute(f"UPDATE todos SET {set_clause} WHERE id = %s RETURNING *", values)
+
+        set_clause = ", ".join(
+            f"{column} = %s" for column in safe_fields
+        )
+        values = list(safe_fields.values()) + [todo_id]
+
+        cur.execute(
+            f"UPDATE todos SET {set_clause} WHERE id = %s RETURNING *",
+            values,
+        )
+
         updated = cur.fetchone()
         if not updated:
             raise HTTPException(status_code=404, detail="Todo not found")
+
         conn.commit()
         return updated
+
     except HTTPException:
         raise
     except Exception:

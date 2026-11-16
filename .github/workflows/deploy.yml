@@ -43,7 +43,7 @@ jobs:
         working-directory: backend
         run: pip install -r requirements.txt pytest "httpx<0.28"
 
-      - name: Run Bandit SAST security scan
+      - name: Run Bandit SAST Security scan
         working-directory: backend
         run: |
           pip install bandit
